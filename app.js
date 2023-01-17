@@ -1,0 +1,17 @@
+const express = require("express");
+const app = express();
+const port = 3000;
+const cors = require("cors");
+const itemRoutes = require("./routes/routes");
+
+app.use(express.json());
+app.use(cors());
+app.use("/notes", itemRoutes);
+
+app.use("/", (req, res) => {
+  res.send("Notes Apps");
+});
+
+app.listen(port, () => {
+  console.log(`App Sedang Berjalan pada port ${port}`);
+});
