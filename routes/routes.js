@@ -1,14 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const fs = require("fs");
-
-// let data = [{ id: 1, title: "Anak Haram", bodyNotes: "Aku adalah anak haram" }];
-
+const { validatorTodoList } = require("../middleware/validator");
+const { response } = require("../helper/response");
 const DATA_DIR = "./data";
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR);
 }
+
 const DATA_JSON = "./data/notes.json";
 if (!fs.existsSync(DATA_JSON)) {
   fs.writeFileSync(DATA_JSON, "[]", "utf-8");
@@ -39,21 +39,33 @@ router.get("/:id", (req, res) => {
 });
 
 //mengirim data ke file json
-router.post("/", (req, res, next) => {
+router.post("/", validatorTodoList, (req, res, next) => {
   let itemsId = notes.map((item) => item.id);
   let newid = itemsId.length + 1;
-  let newNotes = {
-    id: newid,
-    title: req.body.title,
-    bodyNotes: req.body.bodyNotes,
-  };
 
-  notes.push(newNotes);
-  fs.writeFileSync("data/notes.json", JSON.stringify(notes));
-  res.status(201).json({
-    success: true,
-    message: "Berhasil Insert Data",
-    data: newNotes,
+  let data = notes;
+  const { title, bodyNotes } = req.validated;
+  try {
+    data = {
+      id: newid,
+      title: title,
+      bodyNotes: bodyNotes,
+    };
+    notes.push(data);
+    fs.writeFileSync("data/notes.json", JSON.stringify(notes));
+  } catch (err) {
+    console.log(err);
+    response(res, {
+      code: 500,
+      data: err,
+      message: "Data Error",
+    });
+    return;
+  }
+  response(res, {
+    code: 200,
+    data: data,
+    message: "Success Add Data",
   });
 });
 
@@ -79,26 +91,36 @@ router.delete("/:id", (req, res) => {
 });
 
 //update data
-router.put("/:id", (req, res) => {
+router.put("/:id", validatorTodoList, (req, res) => {
   let getId = notes.find((item) => {
     return item.id == req.params.id;
   });
-
-  if (getId) {
-    let updated = {
-      id: parseInt(req.params.id),
-      title: req.body.title,
-      noteBody: req.body.bodyNotes,
-    };
-    let idxTarget = notes.indexOf(getId);
-    notes.splice(idxTarget, 1, updated);
+  let index = notes.indexOf(getId);
+  const { title, bodyNotes } = req.validated;
+  let data = notes;
+  try {
+    if (getId) {
+      data = {
+        id: parseInt(req.params.id),
+        title: title,
+        bodyNotes: bodyNotes,
+      };
+    }
+    notes.splice(index, 1, data);
     fs.writeFileSync("data/notes.json", JSON.stringify(notes));
-    res.status(200).json({
-      message: "Success Updated Data",
-      data: updated,
+  } catch (error) {
+    console.log(error);
+    response(res, {
+      code: 500,
+      data: error,
+      message: "terjadi kesalahan",
     });
-  } else {
-    res.sendStatus(404);
+    return;
   }
+  response(res, {
+    code: 200,
+    data: data,
+    message: "Success update data",
+  });
 });
 module.exports = router;
