@@ -3,23 +3,24 @@ const router = express.Router();
 const fs = require("fs");
 const { validatorTodoList } = require("../middleware/validator");
 const { response } = require("../helper/response");
-const DATA_DIR = "./data";
+const { v4: uuidv4 } = require("uuid");
+const { midBearerToken, verifyToken } = require("../middleware/auth");
+const { createFile, readNotes } = require("../pkg/filesystem");
+const Jwt = require("jsonwebtoken");
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR);
-}
+createFile("./data", "./data/notes.json");
 
-const DATA_JSON = "./data/notes.json";
-if (!fs.existsSync(DATA_JSON)) {
-  fs.writeFileSync(DATA_JSON, "[]", "utf-8");
-}
-
-const fileBuffer = fs.readFileSync("data/notes.json", "utf-8");
-const notes = JSON.parse(fileBuffer);
+let notes = readNotes("data/notes.json");
 
 // get all data
-router.get("/", (req, res) => {
-  res.status(200).json({ success: true, data: notes });
+router.get("/", verifyToken, (req, res) => {
+  Jwt.verify(req.token, "secretkeys", (err, authData) => {
+    if (err) {
+      res.sendStatus(403);
+    } else {
+      res.status(200).json({ success: true, authData, data: notes });
+    }
+  });
 });
 
 // get data berdasarkan id
@@ -40,14 +41,11 @@ router.get("/:id", (req, res) => {
 
 //mengirim data ke file json
 router.post("/", validatorTodoList, (req, res, next) => {
-  let itemsId = notes.map((item) => item.id);
-  let newid = itemsId.length + 1;
-
   let data = notes;
   const { title, bodyNotes } = req.validated;
   try {
     data = {
-      id: newid,
+      id: uuidv4(),
       title: title,
       bodyNotes: bodyNotes,
     };
